@@ -100,8 +100,8 @@ func (w *Warmer) warm(id flux.ImageID, creds Credentials) {
 	}
 
 	// Create a list of manifests that need updating
-	var toUpdate []flux.ImageID
-	var expired bool
+	var expiring []flux.ImageID
+	var missing []flux.ImageID
 	for _, tag := range tags {
 		// See if we have the manifest already cached
 		// We don't want to re-download a manifest again.
@@ -112,36 +112,34 @@ func (w *Warmer) warm(id flux.ImageID, creds Credentials) {
 			continue
 		}
 		expiry, err := w.Reader.GetExpiration(key)
-		// If err, then we don't have it yet. Update.
-		if err == nil { // If no error, we've already got it
-			// If we're outside of the expiry buffer, skip, no need to update.
+		switch {
+		case err == cache.ErrNotCached:
+			missing = append(missing, i)
+		case err == nil: // We've already got it
 			if time.Until(expiry) > refreshWhenExpiryWithin {
-				continue
+				break
 			}
-			// If we're within the expiry buffer, we need to update quick!
-			expired = true
+			expiring = append(expiring, i)
+		default:
+			w.Logger.Log("err", err)
 		}
-		toUpdate = append(toUpdate, i)
 	}
 
-	if len(toUpdate) == 0 {
-		return
+	if len(expiring)+len(missing) > 0 {
+		w.Logger.Log("fetching", id.HostNamespaceImage(), "expiring", len(expiring), "missing", len(missing))
 	}
-	w.Logger.Log("fetching", id.String(), "to-update", len(toUpdate))
-
-	if expired {
-		w.Logger.Log("expiring", id.HostNamespaceImage())
-	}
+	toUpdate := append(missing, expiring...)
 
 	// The upper bound for concurrent fetches against a single host is
 	// w.Burst, so limit the number of fetching goroutines to that.
 	fetchers := make(chan struct{}, w.Burst)
 	awaitFetchers := &sync.WaitGroup{}
+	updated := 0
 	for _, imID := range toUpdate {
 		awaitFetchers.Add(1)
 		fetchers <- struct{}{}
 		go func(imageID flux.ImageID) {
-			defer func() { awaitFetchers.Done(); <-fetchers }()
+			defer func() { updated += 1; awaitFetchers.Done(); <-fetchers }()
 			// Get the image from the remote
 			img, err := client.Manifest(imageID)
 			if err != nil {
@@ -170,5 +168,5 @@ func (w *Warmer) warm(id flux.ImageID, creds Credentials) {
 		}(imID)
 	}
 	awaitFetchers.Wait()
-	w.Logger.Log("updated", id.HostNamespaceImage())
+	w.Logger.Log("updated", id.HostNamespaceImage(), "count", updated)
 }

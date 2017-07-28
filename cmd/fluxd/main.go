@@ -39,10 +39,14 @@ var version string
 
 const (
 	defaultRemoteConnections = 125 // Chosen performance tests on sock-shop. Unable to get higher performance than this.
-	// Memcache: There is only one thread to accept new client connections. If you are cycling connections very quickly, you can overwhelm the thread. Use persistent connections or UDP in this case.
-	// See https://github.com/memcached/memcached/wiki/Performance
-	// Hence, keep the number of new connections low.
-	defaultMemcacheConnections = 10
+
+	// https://github.com/memcached/memcached/wiki/Performance: "There
+	// is only one thread to accept new client connections. If you are
+	// cycling connections very quickly, you can overwhelm the
+	// thread. Use persistent connections or UDP in this case."  The
+	// go client library will (I surmise) keep connections open, to
+	// avoid cycling, if you bump up `MaxIdleConns`.
+	defaultMemcacheConnections = 100
 )
 
 func optionalVar(fs *pflag.FlagSet, value ssh.OptionalValue, name, usage string) ssh.OptionalValue {
@@ -78,7 +82,7 @@ func main() {
 		memcachedHostname    = fs.String("memcached-hostname", "", "Hostname for memcached service to use when caching chunks. If empty, no memcached will be used.")
 		memcachedTimeout     = fs.Duration("memcached-timeout", time.Second, "Maximum time to wait before giving up on memcached requests.")
 		memcachedService     = fs.String("memcached-service", "memcached", "SRV service used to discover memcache servers.")
-		memcachedConnections = fs.Int("memcached-connections", defaultMemcacheConnections, "maximum number of connections to memcache")
+		memcachedConnections = fs.Int("memcached-connections", defaultMemcacheConnections, "maximum number of concurrent connections to memcache")
 
 		registryPollInterval = fs.Duration("registry-poll-interval", 5*time.Minute, "period at which to poll registry for new images")
 		registryRPS          = fs.Int("registry-rps", 200, "maximum registry requests per second per host")
@@ -219,6 +223,7 @@ func main() {
 				Service:        *memcachedService,
 				Timeout:        *memcachedTimeout,
 				UpdateInterval: 1 * time.Minute,
+				MaxIdleConns:   *memcachedConnections,
 				Logger:         log.NewContext(logger).With("component", "memcached"),
 			})
 			memcacheClient = registryMemcache.InstrumentMemcacheClient(memcacheClient)

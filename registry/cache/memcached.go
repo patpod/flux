@@ -74,6 +74,7 @@ type MemcacheConfig struct {
 	Service        string
 	Timeout        time.Duration
 	UpdateInterval time.Duration
+	MaxIdleConns   int
 	Logger         log.Logger
 }
 
@@ -81,6 +82,7 @@ func NewMemcacheClient(config MemcacheConfig) Client {
 	var servers memcache.ServerList
 	client := memcache.NewFromSelector(&servers)
 	client.Timeout = config.Timeout
+	client.MaxIdleConns = config.MaxIdleConns
 
 	newClient := &memcacheClient{
 		Client:     client,
@@ -156,6 +158,7 @@ func (c *memcacheClient) GetExpiration(k Keyer) (time.Time, error) {
 	var data expiryData
 	err = json.Unmarshal(cacheItem.Value, &data)
 	if err != nil {
+		c.logger.Log("err", errors.Wrap(err, "Unmarshaling cache value"))
 		return time.Time{}, err
 	}
 	return time.Unix(int64(data.Expiry), 0), nil
