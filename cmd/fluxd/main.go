@@ -79,7 +79,7 @@ func main() {
 		memcachedTimeout     = fs.Duration("memcached-timeout", time.Second, "Maximum time to wait before giving up on memcached requests.")
 		memcachedService     = fs.String("memcached-service", "memcached", "SRV service used to discover memcache servers.")
 		memcachedConnections = fs.Int("memcached-connections", defaultMemcacheConnections, "maximum number of connections to memcache")
-		registryCacheExpiry  = fs.Duration("registry-cache-expiry", 20*time.Minute, "Duration to keep cached registry tag info. Must be < 1 month.")
+
 		registryPollInterval = fs.Duration("registry-poll-interval", 5*time.Minute, "period at which to poll registry for new images")
 		registryRPS          = fs.Int("registry-rps", 200, "maximum registry requests per second per host")
 		registryBurst        = fs.Int("registry-burst", defaultRemoteConnections, "maximum registry request burst per host (default matched to number of http worker goroutines)")
@@ -96,9 +96,11 @@ func main() {
 
 		// Deprecated
 		_ = fs.String("docker-config", "", "path to a docker config to use for credentials")
+		_ = fs.Duration("registry-cache-expiry", 0, "Deprecated.")
 	)
 
 	fs.MarkDeprecated("docker-config", "credentials are taken from imagePullSecrets now")
+	fs.MarkDeprecated("registry-cache-expiry", "expiry is hard-wired to one hour")
 
 	fs.Parse(os.Args)
 
@@ -225,7 +227,7 @@ func main() {
 
 		cacheLogger := log.NewContext(logger).With("component", "cache")
 		cache = registry.NewRegistry(
-			registry.NewCacheClientFactory(cacheLogger, memcacheClient, *registryCacheExpiry),
+			registry.NewCacheClientFactory(cacheLogger, memcacheClient),
 			cacheLogger,
 			*memcachedConnections,
 		)
@@ -243,7 +245,6 @@ func main() {
 		cacheWarmer = registry.Warmer{
 			Logger:        warmerLogger,
 			ClientFactory: remoteFactory,
-			Expiry:        *registryCacheExpiry,
 			Reader:        memcacheClient,
 			Writer:        memcacheClient,
 			Burst:         *registryBurst,

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/cookiejar"
-	"time"
 
 	"github.com/go-kit/kit/log"
 	dockerregistry "github.com/heroku/docker-registry-client/registry"
@@ -90,24 +89,22 @@ func (f *remoteClientFactory) ClientFor(host string, creds Credentials) (Client,
 
 // ---
 // A new ClientFactory implementation for a Cache
-func NewCacheClientFactory(l log.Logger, cache cache.Reader, cacheExpiry time.Duration) ClientFactory {
+func NewCacheClientFactory(l log.Logger, cache cache.Reader) ClientFactory {
 	return &cacheClientFactory{
-		Logger:      l,
-		cache:       cache,
-		CacheExpiry: cacheExpiry,
+		Logger: l,
+		cache:  cache,
 	}
 }
 
 type cacheClientFactory struct {
-	Logger      log.Logger
-	cache       cache.Reader
-	CacheExpiry time.Duration
+	Logger log.Logger
+	cache  cache.Reader
 }
 
 func (f *cacheClientFactory) ClientFor(host string, creds Credentials) (Client, error) {
 	if f.cache == nil {
 		return nil, ErrNoMemcache
 	}
-	client := NewCache(creds, f.cache, f.CacheExpiry, f.Logger)
+	client := NewCache(creds, f.cache, f.Logger)
 	return client, nil
 }

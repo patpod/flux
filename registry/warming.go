@@ -15,14 +15,18 @@ import (
 	"github.com/weaveworks/flux/registry/cache"
 )
 
-const refreshWhenExpiryWithin = time.Minute
+// Refresh entries when they are within this duration of expiring. See
+// also `expiry` in the cache package.
+const refreshWhenExpiryWithin = 5 * time.Minute
+
+// Request an update to the images in use, then look for new image
+// tags, no more often than this
 const askForNewImagesInterval = time.Minute
 
 type Warmer struct {
 	Logger        log.Logger
 	ClientFactory ClientFactory
 	Creds         Credentials
-	Expiry        time.Duration
 	Writer        cache.Writer
 	Reader        cache.Reader
 	Burst         int
@@ -35,7 +39,7 @@ type ImageCreds map[flux.ImageID]Credentials
 func (w *Warmer) Loop(stop <-chan struct{}, wg *sync.WaitGroup, imagesToFetchFunc func() ImageCreds) {
 	defer wg.Done()
 
-	if w.Logger == nil || w.ClientFactory == nil || w.Expiry == 0 || w.Writer == nil || w.Reader == nil {
+	if w.Logger == nil || w.ClientFactory == nil || w.Writer == nil || w.Reader == nil {
 		panic("registry.Warmer fields are nil")
 	}
 

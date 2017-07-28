@@ -74,7 +74,6 @@ func (a *Remote) Cancel() {
 // An implementation of Client backed by Memcache
 type Cache struct {
 	creds  Credentials
-	expiry time.Duration
 	cr     cache.Reader
 	logger log.Logger
 }
@@ -83,10 +82,9 @@ func (*Cache) Cancel() {
 	return
 }
 
-func NewCache(creds Credentials, cr cache.Reader, expiry time.Duration, logger log.Logger) Client {
+func NewCache(creds Credentials, cr cache.Reader, logger log.Logger) Client {
 	return &Cache{
 		creds:  creds,
-		expiry: expiry,
 		cr:     cr,
 		logger: logger,
 	}

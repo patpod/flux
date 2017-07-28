@@ -44,7 +44,6 @@ func TestWarming_WarmerWriteCacheRead(t *testing.T) {
 	cache := NewCacheClientFactory(
 		logger.With("component", "cache"),
 		mc,
-		time.Hour,
 	)
 
 	r := NewRegistry(
