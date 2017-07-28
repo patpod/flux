@@ -111,7 +111,7 @@ func (w *Warmer) warm(id flux.ImageID, creds Credentials) {
 		// If err, then we don't have it yet. Update.
 		if err == nil { // If no error, we've already got it
 			// If we're outside of the expiry buffer, skip, no need to update.
-			if !withinExpiryBuffer(expiry, refreshWhenExpiryWithin) {
+			if time.Until(expiry) > refreshWhenExpiryWithin {
 				continue
 			}
 			// If we're within the expiry buffer, we need to update quick!
@@ -167,13 +167,4 @@ func (w *Warmer) warm(id flux.ImageID, creds Credentials) {
 	}
 	awaitFetchers.Wait()
 	w.Logger.Log("updated", id.HostNamespaceImage())
-}
-
-func withinExpiryBuffer(expiry time.Time, buffer time.Duration) bool {
-	// if the `time.Now() + buffer  > expiry`,
-	// then we're within the expiry buffer
-	if time.Now().Add(buffer).After(expiry) {
-		return true
-	}
-	return false
 }
