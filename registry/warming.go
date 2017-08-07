@@ -126,47 +126,48 @@ func (w *Warmer) warm(id flux.ImageID, creds Credentials) {
 	}
 
 	if len(expiring)+len(missing) > 0 {
-		w.Logger.Log("fetching", id.HostNamespaceImage(), "expiring", len(expiring), "missing", len(missing))
-	}
-	toUpdate := append(missing, expiring...)
+		w.Logger.Log("fetching", id.HostNamespaceImage(), "total", len(tags), "expiring", len(expiring), "missing", len(missing))
+		toUpdate := append(missing, expiring...)
 
-	// The upper bound for concurrent fetches against a single host is
-	// w.Burst, so limit the number of fetching goroutines to that.
-	fetchers := make(chan struct{}, w.Burst)
-	awaitFetchers := &sync.WaitGroup{}
-	updated := 0
-	for _, imID := range toUpdate {
-		awaitFetchers.Add(1)
-		fetchers <- struct{}{}
-		go func(imageID flux.ImageID) {
-			defer func() { updated += 1; awaitFetchers.Done(); <-fetchers }()
-			// Get the image from the remote
-			img, err := client.Manifest(imageID)
-			if err != nil {
-				if !strings.Contains(err.Error(), context.DeadlineExceeded.Error()) && !strings.Contains(err.Error(), "net/http: request canceled") {
-					w.Logger.Log("err", errors.Wrap(err, "requesting manifests"))
+		// The upper bound for concurrent fetches against a single host is
+		// w.Burst, so limit the number of fetching goroutines to that.
+		fetchers := make(chan struct{}, w.Burst)
+		awaitFetchers := &sync.WaitGroup{}
+		successfullyUpdated := 0
+		for _, imID := range toUpdate {
+			awaitFetchers.Add(1)
+			fetchers <- struct{}{}
+			go func(imageID flux.ImageID) {
+				defer func() { awaitFetchers.Done(); <-fetchers }()
+				// Get the image from the remote
+				img, err := client.Manifest(imageID)
+				if err != nil {
+					if !strings.Contains(err.Error(), context.DeadlineExceeded.Error()) && !strings.Contains(err.Error(), "net/http: request canceled") {
+						w.Logger.Log("err", errors.Wrap(err, "requesting manifests"))
+					}
+					return
 				}
-				return
-			}
 
-			key, err := cache.NewManifestKey(username, img.ID)
-			if err != nil {
-				w.Logger.Log("err", errors.Wrap(err, "creating key for memcache"))
-				return
-			}
-			// Write back to memcache
-			val, err := json.Marshal(img)
-			if err != nil {
-				w.Logger.Log("err", errors.Wrap(err, "serializing tag to store in cache"))
-				return
-			}
-			err = w.Writer.SetKey(key, val)
-			if err != nil {
-				w.Logger.Log("err", errors.Wrap(err, "storing manifests in cache"))
-				return
-			}
-		}(imID)
+				key, err := cache.NewManifestKey(username, img.ID)
+				if err != nil {
+					w.Logger.Log("err", errors.Wrap(err, "creating key for memcache"))
+					return
+				}
+				// Write back to memcache
+				val, err := json.Marshal(img)
+				if err != nil {
+					w.Logger.Log("err", errors.Wrap(err, "serializing tag to store in cache"))
+					return
+				}
+				err = w.Writer.SetKey(key, val)
+				if err != nil {
+					w.Logger.Log("err", errors.Wrap(err, "storing manifests in cache"))
+					return
+				}
+				successfullyUpdated += 1
+			}(imID)
+		}
+		awaitFetchers.Wait()
+		w.Logger.Log("updated", id.HostNamespaceImage(), "count", successfullyUpdated)
 	}
-	awaitFetchers.Wait()
-	w.Logger.Log("updated", id.HostNamespaceImage(), "count", updated)
 }
