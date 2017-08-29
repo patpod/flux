@@ -32,9 +32,11 @@ func setup(t *testing.T) *NATS {
 
 func subscribe(t *testing.T, bus *NATS, errc chan error, inst service.InstanceID, plat remote.Platform) {
 	bus.Subscribe(inst, plat, errc)
+	println("AwaitPresence")
 	if err := bus.AwaitPresence(inst, 5*time.Second); err != nil {
 		t.Fatal("Timed out waiting for instance to subscribe")
 	}
+	println("ok")
 }
 
 func TestPing(t *testing.T) {
@@ -74,11 +76,14 @@ func TestMethods(t *testing.T) {
 	instA := service.InstanceID("steamy-windows-89")
 
 	wrap := func(mock remote.Platform) remote.Platform {
+		println("subscribe")
 		subscribe(t, bus, errc, instA, mock)
+		println("connect", instA)
 		plat, err := bus.Connect(instA)
 		if err != nil {
 			t.Fatal(err)
 		}
+		println("return")
 		return plat
 	}
 	remote.PlatformTestBattery(t, wrap)

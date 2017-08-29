@@ -167,6 +167,7 @@ func PlatformTestBattery(t *testing.T, wrap func(mock Platform) Platform) {
 		SyncStatusAnswer:       syncStatusAnswer,
 	}
 
+	println("wrap(mock)")
 	// OK, here we go
 	client := wrap(mock)
 
