@@ -26,6 +26,13 @@ spec:
         emptyDir:
           medium: Memory
 
+      # The following volume is for using a customised known_hosts
+      # file, which you will need to do if you host your own git repo
+      # rather than using github or the like. You'll also need to
+      # mount it into the container, below.
+      # - name: known-hosts
+      #   configMap: flux-known-hosts
+
       containers:
       - name: flux
         # There are no ":latest" images for flux. Find the most recent
@@ -41,6 +48,13 @@ spec:
           readOnly: true # this will be the case perforce in K8s >=1.10
         - name: git-keygen
           mountPath: /var/fluxd/keygen # to match image's ~/.ssh/config
+
+        # Include this if you need to mount a customised known_hosts
+        # file; you'll also need the volume declared above.
+        # - name: known-hosts
+        #   mountPath: /root/.ssh/known_hosts
+        #   subPath: known_hosts
+
         args:
 
         # if you deployed memcached in a different namespace to flux,
