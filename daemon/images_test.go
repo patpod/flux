@@ -9,7 +9,7 @@ import (
 	"github.com/weaveworks/flux/policy"
 )
 
-func Test_getTagPattern(t *testing.T) {
+func Test_GetTagPattern(t *testing.T) {
 	resourceID, err := flux.ParseResourceID("default:deployment/helloworld")
 	assert.NoError(t, err)
 	container := "helloContainer"
@@ -50,8 +50,8 @@ func Test_getTagPattern(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getTagPattern(tt.args.services, tt.args.service, tt.args.container); got != tt.want {
-				t.Errorf("getTagPattern() = %v, want %v", got, tt.want)
+			if got := GetTagPattern(tt.args.services, tt.args.service, tt.args.container); got != tt.want {
+				t.Errorf("GetTagPattern() = %v, want %v", got, tt.want)
 			}
 		})
 	}

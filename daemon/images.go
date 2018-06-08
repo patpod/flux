@@ -51,7 +51,7 @@ func (d *Daemon) pollForNewImages(logger log.Logger) {
 				continue
 			}
 
-			pattern := getTagPattern(candidateServicesPolicyMap, service.ID, container.Name)
+			pattern := GetTagPattern(candidateServicesPolicyMap, service.ID, container.Name)
 			repo := currentImageID.Name
 			logger.Log("repo", repo, "pattern", pattern)
 
@@ -74,7 +74,7 @@ func (d *Daemon) pollForNewImages(logger log.Logger) {
 	}
 }
 
-func getTagPattern(services policy.ResourceMap, service flux.ResourceID, container string) string {
+func GetTagPattern(services policy.ResourceMap, service flux.ResourceID, container string) string {
 	if services == nil {
 		return "*"
 	}
